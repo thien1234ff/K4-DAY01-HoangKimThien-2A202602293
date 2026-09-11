@@ -22,33 +22,32 @@ Nguồn evidence: `classification_predictions.json`, sample `traffic`.
 - Record hạng 1 (`class_id`, `class_name`, `rank`, `score`, `taxonomy_name`):
   `{"class_id": 468, "class_name": "cab", "rank": 1, "score": 0.510915, "taxonomy_name": "ImageNet-1K"}` (thuộc sample `traffic`, coco_image_id: 210273).
 - Record này mô tả toàn ảnh như thế nào?
-  Tác vụ phân loại ảnh (image classification) gán một nhãn duy nhất ở cấp độ toàn bức ảnh (image-level prediction). Record này đưa ra nhận định rằng toàn bộ bối cảnh bức ảnh đại diện tốt nhất cho lớp "cab" (xe taxi) với độ tin cậy ~51.09%, mà không xác định vị trí tọa độ của chiếc taxi nằm ở đâu hay phân tách ranh giới của các đối tượng khác trong ảnh.
+  Tác vụ phân loại ảnh (image classification) gán một nhãn duy nhất ở cấp độ toàn bức ảnh (image-level prediction).
 - Ai định nghĩa class list mà checkpoint có thể dự đoán?
-  Tập dữ liệu huấn luyện và người thiết kế taxonomy, cụ thể ở đây là taxonomy ImageNet-1K gồm 1.000 lớp danh mục chuẩn do cộng đồng ImageNet thiết lập, được tích hợp sẵn trong checkpoint `yolo11n-cls.pt`. Mô hình không tự nghĩ ra các lớp này.
+  Tập dữ liệu huấn luyện và người thiết kế taxonomy, cụ thể ở đây là taxonomy ImageNet-1K gồm 1.000 lớp danh mục chuẩn do cộng đồng ImageNet thiết lập.
 - Vì sao cần giữ cả ID, tên lớp và tên taxonomy?
-  - `class_id` (468): Dành cho máy tính xử lý kỹ thuật số (index trong output tensor, tối ưu lưu trữ và truy vấn chỉ mục trong CSDL).
-  - `class_name` ("cab"): Dành cho con người (annotator, reviewer, kỹ sư) hiểu trực quan ngữ nghĩa của nhãn.
-  - `taxonomy_name` ("ImageNet-1K"): Cực kỳ quan trọng để đảm bảo tính toàn vẹn và nguồn gốc dữ liệu (data provenance). Các bộ dữ liệu khác nhau có taxonomy khác nhau; cùng một ID hoặc cùng một tên lớp có thể mang phạm vi ngữ nghĩa hoàn toàn khác biệt (ví dụ ID 0 trong COCO là `person` trong khi ở ImageNet-1K là `tench`; hoặc khái niệm "cab" trong ImageNet-1K chỉ chung xe taxi, khác với định nghĩa phân cấp xe cộ trong OpenImages hay COCO).
+    Giữ lại để đảm bảo cho cả máy tính và con người đều có thể hiểu được một cách tường minh vật thể muốn xem xét
+  - `class_id` (468): Dành cho máy tính xử lý kỹ thuật số
+  - `class_name` ("cab"): Dành cho con người hiểu trực quan ngữ nghĩa của nhãn.
+  - `taxonomy_name` ("ImageNet-1K"): Cực kỳ quan trọng để đảm bảo tính toàn vẹn và nguồn gốc dữ liệu (data provenance).
 - Nếu ảnh có nhiều chủ thể, guideline cần quy định điều gì?
   Trong ảnh `traffic`, có rất nhiều chủ thể cùng xuất hiện (xe buýt, taxi, xe con, người đi bộ). Guideline cần quy định rõ ràng:
-  1. Tiêu chí lựa chọn nhãn đại diện chính: Ưu tiên đối tượng chiếm diện tích lớn nhất (dominant object), đối tượng nằm ở vùng trung tâm (center of focus), hay đối tượng ở tiền cảnh sắc nét nhất.
-  2. Bối cảnh tổng thể vs. đối tượng cụ thể: Quy định rõ khi nào gán nhãn bối cảnh (scene-level như "traffic/street scene") và khi nào gán nhãn vật thể cụ thể.
-  3. Cơ chế xử lý trường hợp mơ hồ (ambiguity): Nếu nhiều đối tượng có vai trò tương đương nhau mà không thể phân định một nhãn duy nhất, annotator cần gắn cờ escalate cho reviewer/lead, hoặc quy định chuyển đổi bài toán sang phân loại đa nhãn (multi-label classification) hoặc phát hiện vật thể (object detection).
+  - Tiêu chí lựa chọn nhãn đại diện chính: Ưu tiên đối tượng chiếm diện tích lớn nhất (dominant object), đối tượng nằm ở vùng trung tâm (center of focus), hay đối tượng ở tiền cảnh sắc nét nhất.
 - Vì sao model score không phải ground truth?
-  Model score (confidence score) chỉ là giá trị xác suất toán học (thường qua hàm Softmax) phản ánh mức độ tự tin của mạng nơ-ron dựa trên các trọng số đã được huấn luyện. Model score không phản ánh sự thật khách quan (ground truth) vì mô hình có thể tự tin rất cao (high confidence) vào một dự đoán sai do thiên kiến dữ liệu hoặc góc chụp lạ, và ngược lại có thể tự tin thấp (low confidence) vào một đối tượng hiển nhiên đúng do nhiễu hạt hoặc ánh sáng yếu. Ground truth chỉ được thiết lập sau khi con người (human annotator & reviewer) kiểm duyệt và xác nhận theo guideline chuẩn.
+  Model score (confidence score) chỉ là giá trị xác suất toán học (thường qua hàm Softmax) phản ánh mức độ tự tin của mạng nơ-ron dựa trên các trọng số đã được huấn luyện. Model score không phản ánh sự thật khách quan (ground truth) vì mô hình có thể tự tin rất cao (high confidence) vào một dự đoán sai do thiên kiến dữ liệu hoặc góc chụp lạ (có thể là hiện tượng calibration model không tốt), và ngược lại có thể tự tin thấp (low confidence) vào một đối tượng hiển nhiên đúng do nhiễu hạt hoặc ánh sáng yếu. Ground truth chỉ được thiết lập sau khi con người kiểm duyệt và xác nhận theo guideline chuẩn.
 
 ## 2. Phát hiện vật thể – lớp và box cho từng object
 
 Nguồn evidence: `detection_predictions.json` và `visuals/detection_predictions.png`, sample `kitchen`.
 
 - Một record (`class_name`, `score`, `bbox_xyxy`, `bbox_width`, `bbox_height`):
-  `{"class_name": "person", "score": 0.912624, "bbox_xyxy": [385.33, 69.24, 498.92, 348.92], "bbox_width": 113.59, "bbox_height": 279.68}` (đối tượng người đầu bếp đứng bên phải căn bếp).
+  `{"class_name": "bus", "score": 0.912558, "bbox_xyxy": [93.17,187.95,223.01,320.91], "bbox_width": 129.84, "bbox_height": 132.96}` (đối tượng xe buýt).
 - Diễn giải vị trí box bằng lời:
-  Hộp bao quanh người đầu bếp (person) đứng quay lưng ở phía bên phải căn bếp: có góc trên-bên trái tại tọa độ pixel `(x=385.33, y=69.24)` (ngay phần đỉnh đầu/tóc) và góc dưới-bên phải tại `(x=498.92, y=348.92)` (ngay sát gót chân), ôm trọn chiều rộng 113.59 pixel và chiều cao 279.68 pixel của thân người trên kích thước ảnh 640x427.
+  Hộp bao quanh xe buýt nằm trong tọa độ từ pixel (93.17, 187.95) đến (223.01, 320.91) với kích thước ảnh là chiều rộng 129.84 pixel và chiều cao 132.96 pixel.
 - So sánh số prediction ở hai threshold:
   Trong notebook khi chạy thực nghiệm trên sample `kitchen`:
-  - Tại ngưỡng score `0.20`: mô hình phát hiện **17 vật thể** (`['person', 'bowl', 'bowl', 'oven', 'oven', 'person', 'bowl', 'bowl', 'cup', 'cup', 'bowl', 'spoon', 'potted plant', 'spoon', 'dining table', 'spoon', 'bottle']`).
-  - Tại ngưỡng score `0.35`: mô hình phát hiện **11 vật thể** (`['person', 'bowl', 'bowl', 'oven', 'oven', 'person', 'bowl', 'bowl', 'cup', 'cup', 'bowl']`).
+  - Tại ngưỡng score `0.20`: mô hình phát hiện 17 vật thể (`['person', 'bowl', 'bowl', 'oven', 'oven', 'person', 'bowl', 'bowl', 'cup', 'cup', 'bowl', 'spoon', 'potted plant', 'spoon', 'dining table', 'spoon', 'bottle']`).
+  - Tại ngưỡng score `0.35`: mô hình phát hiện 11 vật thể (`['person', 'bowl', 'bowl', 'oven', 'oven', 'person', 'bowl', 'bowl', 'cup', 'cup', 'bowl']`).
   (Số lượng dự đoán giảm từ 17 xuống 11 khi tăng threshold từ 0.20 lên 0.35, loại bỏ các vật thể có điểm tin cậy thấp như spoon, potted plant, dining table, bottle).
 - Điều gì thay đổi đối với độ bao phủ và khối lượng reviewer cần xem?
   - Khi đặt threshold thấp (0.20): Độ bao phủ (recall) cao, phát hiện được nhiều vật thể nhỏ và mờ (chiếc bàn lớn, các thìa, chùm lá treo), nhưng kéo theo nhiều dự đoán sai/dương tính giả (false positives). Reviewer phải kiểm tra khối lượng dự đoán lớn hơn nhiều và tốn thời gian xóa/sửa các box rác.
@@ -68,11 +67,492 @@ Nguồn evidence: `detection_predictions.json` và `visuals/detection_prediction
 Nguồn evidence: `segmentation_predictions.json` và `visuals/segmentation_prediction.png`, sample `kitchen`.
 
 - Một record (`instance_id`, `class_name`, `score`, số điểm và một phần `polygon_xy`):
-  `{"instance_id": "kitchen-001", "class_name": "person", "score": 0.899318, "polygon_point_count": 348, "polygon_xy": [[446.0, 70.0], [445.0, 71.0], [444.0, 71.0], [443.0, 72.0], [442.0, 72.0], "... (tổng cộng 348 điểm)"]}` (đối tượng người đầu bếp đứng quay lưng trong `kitchen`).
+  `{"instance_id": "traffic-001", "class_name": "bus", "score": 0.925745, "polygon_point_count": 120, "polygon_xy": [
+      [
+        148.0,
+        189.0
+      ],
+      [
+        147.0,
+        190.0
+      ],
+      [
+        145.0,
+        190.0
+      ],
+      [
+        143.0,
+        192.0
+      ],
+      [
+        142.0,
+        192.0
+      ],
+      [
+        141.0,
+        193.0
+      ],
+      [
+        139.0,
+        193.0
+      ],
+      [
+        137.0,
+        195.0
+      ],
+      [
+        136.0,
+        195.0
+      ],
+      [
+        135.0,
+        196.0
+      ],
+      [
+        134.0,
+        196.0
+      ],
+      [
+        133.0,
+        197.0
+      ],
+      [
+        132.0,
+        197.0
+      ],
+      [
+        131.0,
+        198.0
+      ],
+      [
+        130.0,
+        198.0
+      ],
+      [
+        128.0,
+        200.0
+      ],
+      [
+        127.0,
+        200.0
+      ],
+      [
+        126.0,
+        201.0
+      ],
+      [
+        125.0,
+        201.0
+      ],
+      [
+        123.0,
+        203.0
+      ],
+      [
+        122.0,
+        203.0
+      ],
+      [
+        121.0,
+        204.0
+      ],
+      [
+        120.0,
+        204.0
+      ],
+      [
+        119.0,
+        205.0
+      ],
+      [
+        117.0,
+        205.0
+      ],
+      [
+        116.0,
+        206.0
+      ],
+      [
+        115.0,
+        206.0
+      ],
+      [
+        114.0,
+        207.0
+      ],
+      [
+        113.0,
+        207.0
+      ],
+      [
+        111.0,
+        209.0
+      ],
+      [
+        110.0,
+        209.0
+      ],
+      [
+        109.0,
+        210.0
+      ],
+      [
+        108.0,
+        210.0
+      ],
+      [
+        105.0,
+        213.0
+      ],
+      [
+        104.0,
+        213.0
+      ],
+      [
+        98.0,
+        219.0
+      ],
+      [
+        98.0,
+        220.0
+      ],
+      [
+        96.0,
+        222.0
+      ],
+      [
+        96.0,
+        312.0
+      ],
+      [
+        97.0,
+        313.0
+      ],
+      [
+        97.0,
+        314.0
+      ],
+      [
+        98.0,
+        315.0
+      ],
+      [
+        101.0,
+        315.0
+      ],
+      [
+        102.0,
+        316.0
+      ],
+      [
+        104.0,
+        316.0
+      ],
+      [
+        105.0,
+        317.0
+      ],
+      [
+        106.0,
+        317.0
+      ],
+      [
+        107.0,
+        318.0
+      ],
+      [
+        108.0,
+        318.0
+      ],
+      [
+        109.0,
+        319.0
+      ],
+      [
+        113.0,
+        319.0
+      ],
+      [
+        114.0,
+        318.0
+      ],
+      [
+        116.0,
+        318.0
+      ],
+      [
+        117.0,
+        317.0
+      ],
+      [
+        122.0,
+        317.0
+      ],
+      [
+        123.0,
+        316.0
+      ],
+      [
+        131.0,
+        316.0
+      ],
+      [
+        132.0,
+        315.0
+      ],
+      [
+        163.0,
+        315.0
+      ],
+      [
+        164.0,
+        314.0
+      ],
+      [
+        170.0,
+        314.0
+      ],
+      [
+        171.0,
+        315.0
+      ],
+      [
+        176.0,
+        315.0
+      ],
+      [
+        177.0,
+        316.0
+      ],
+      [
+        183.0,
+        316.0
+      ],
+      [
+        184.0,
+        315.0
+      ],
+      [
+        185.0,
+        315.0
+      ],
+      [
+        188.0,
+        312.0
+      ],
+      [
+        188.0,
+        311.0
+      ],
+      [
+        190.0,
+        309.0
+      ],
+      [
+        190.0,
+        308.0
+      ],
+      [
+        197.0,
+        301.0
+      ],
+      [
+        198.0,
+        301.0
+      ],
+      [
+        199.0,
+        300.0
+      ],
+      [
+        201.0,
+        300.0
+      ],
+      [
+        202.0,
+        299.0
+      ],
+      [
+        203.0,
+        299.0
+      ],
+      [
+        204.0,
+        298.0
+      ],
+      [
+        205.0,
+        298.0
+      ],
+      [
+        206.0,
+        297.0
+      ],
+      [
+        209.0,
+        297.0
+      ],
+      [
+        210.0,
+        296.0
+      ],
+      [
+        211.0,
+        296.0
+      ],
+      [
+        213.0,
+        294.0
+      ],
+      [
+        213.0,
+        293.0
+      ],
+      [
+        214.0,
+        292.0
+      ],
+      [
+        214.0,
+        291.0
+      ],
+      [
+        215.0,
+        290.0
+      ],
+      [
+        215.0,
+        289.0
+      ],
+      [
+        217.0,
+        287.0
+      ],
+      [
+        217.0,
+        286.0
+      ],
+      [
+        219.0,
+        284.0
+      ],
+      [
+        219.0,
+        283.0
+      ],
+      [
+        220.0,
+        282.0
+      ],
+      [
+        220.0,
+        281.0
+      ],
+      [
+        221.0,
+        280.0
+      ],
+      [
+        221.0,
+        279.0
+      ],
+      [
+        222.0,
+        278.0
+      ],
+      [
+        222.0,
+        276.0
+      ],
+      [
+        223.0,
+        275.0
+      ],
+      [
+        223.0,
+        234.0
+      ],
+      [
+        222.0,
+        233.0
+      ],
+      [
+        222.0,
+        226.0
+      ],
+      [
+        221.0,
+        225.0
+      ],
+      [
+        221.0,
+        220.0
+      ],
+      [
+        220.0,
+        219.0
+      ],
+      [
+        220.0,
+        208.0
+      ],
+      [
+        219.0,
+        207.0
+      ],
+      [
+        219.0,
+        202.0
+      ],
+      [
+        218.0,
+        201.0
+      ],
+      [
+        218.0,
+        198.0
+      ],
+      [
+        217.0,
+        197.0
+      ],
+      [
+        217.0,
+        196.0
+      ],
+      [
+        213.0,
+        192.0
+      ],
+      [
+        211.0,
+        192.0
+      ],
+      [
+        210.0,
+        191.0
+      ],
+      [
+        206.0,
+        191.0
+      ],
+      [
+        205.0,
+        190.0
+      ],
+      [
+        199.0,
+        190.0
+      ],
+      [
+        198.0,
+        189.0
+      ]
+    ]` (đối tượng xe bus trong ).
 - Polygon bổ sung chi tiết gì so với box?
   Polygon cung cấp thông tin ranh giới pixel chính xác (pixel-level mask/boundary) theo đúng hình dạng thực tế (contour, silhouette) của từng vật thể. Thay vì một hình chữ nhật bao quanh chứa lẫn cả các pixel nền (background) hoặc pixel của các vật thể khác xung quanh, polygon tách biệt hoàn toàn vật thể khỏi môi trường nền, thể hiện rõ các đường nét chi tiết như bờ vai, eo tạp dề, nếp gấp quần áo của người đầu bếp, hoặc đường gờ uốn lượn của khuôn nướng bánh.
 - `instance_id` dùng để làm gì và không phải loại ID nào?
-  - `instance_id` (ví dụ `kitchen-001`, `kitchen-002`,...) dùng để phân biệt và định danh duy nhất từng cá thể đối tượng độc lập trong phạm vi bức ảnh đó, cho phép phân tách giữa các đối tượng có cùng class_name (ví dụ phân biệt người đầu bếp này với người khác trong cùng một ảnh).
+  - `instance_id` (ví dụ `kitchen-001`, `kitchen-002`,...) dùng để phân biệt và định danh duy nhất từng cá thể đối tượng độc lập trong phạm vi bức ảnh đó, cho phép phân tách giữa các đối tượng có cùng class_name.
   - `instance_id` KHÔNG PHẢI là `class_id` (mã danh mục ngữ nghĩa dùng chung cho toàn bộ lớp đối tượng), và cũng KHÔNG PHẢI là `tracking ID / re-identification ID` (mã định danh liên tục xuyên suốt qua nhiều khung hình video hay camera khác nhau).
 - Đề xuất một quy tắc biên mask:
   "Đường biên của đa giác mặt nạ (polygon edge) phải đi sát đường ranh giới tự nhiên giữa vật thể và nền với sai số tối đa 1-2 pixel. Không bao gồm các pixel nền trống, bóng đổ (shadows) hoặc các vật thể lân cận. Đối với các đối tượng có cấu trúc rỗng bên trong (như quai ấm, lỗ hổng), phải tạo đường biên trong (interior ring/hole) để trừ phần nền ra."
